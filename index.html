@@ -1,26 +1,201 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Chat</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="chat-container">
-    <header>
-      <h2>Live Chat</h2>
-      <button id="darkToggle">🌓</button>
-    </header>
-    <main id="chatBox"></main>
-    <form id="chatForm">
-      <input type="text" id="chatInput" placeholder="Tulis pesan..." required />
-      <button type="submit">Kirim</button>
-    </form>
-  </div>
+<html class="scroll-smooth" lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Live Chat with Firebase - Modern &amp; Dark Mode
+  </title>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+  <style>
+   /* Custom scrollbar for chat container */
+    .chat-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background-color: rgba(100, 116, 139, 0.5);
+      border-radius: 4px;
+    }
+    .dark .chat-scroll::-webkit-scrollbar-thumb {
+      background-color: rgba(156, 163, 175, 0.5);
+    }
+  </style>
+ </head>
+ <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col h-screen font-sans transition-colors duration-500">
+  <header class="flex items-center justify-between px-5 py-3 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md">
+   <div class="flex items-center space-x-3">
+    <img alt="Chat app logo, stylized chat bubble icon in blue and white" class="w-10 h-10 rounded-full" height="40" src="https://storage.googleapis.com/a1aa/image/b8552155-5adb-4f78-fbb2-ce4e47547cd8.jpg" width="40"/>
+    <h1 class="text-xl font-semibold select-none">
+     Live Chat
+    </h1>
+   </div>
+   <button aria-label="Toggle dark mode" class="text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400 rounded" id="darkModeToggle" title="Toggle Dark Mode">
+    <i class="fas fa-moon text-lg">
+    </i>
+   </button>
+  </header>
+  <main class="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4">
+   <div aria-live="polite" aria-relevant="additions" class="chat-scroll flex-1 overflow-y-auto space-y-3 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-inner border border-gray-300 dark:border-gray-700" id="chatContainer" role="log">
+    <!-- Messages will appear here -->
+   </div>
+   <form aria-label="Send a message" autocomplete="off" class="mt-4 flex items-center space-x-3" id="chatForm">
+    <input aria-describedby="chatInputHelp" aria-required="true" class="flex-1 rounded-full border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors duration-300" id="chatInput" placeholder="Type your message..." required="" type="text"/>
+    <button aria-label="Send message" class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full px-5 py-2 flex items-center justify-center transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400" type="submit">
+     <i class="fas fa-paper-plane">
+     </i>
+    </button>
+   </form>
+   <p class="sr-only" id="chatInputHelp">
+    Press Enter or click send to submit your message
+   </p>
+  </main>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js">
+  </script>
+  <script>
+   // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDr15b_aZBAgxBquT7hqQQe9HTjFr-Akdg",
+      authDomain: "livechat-6ef78.firebaseapp.com",
+      databaseURL:
+        "https://livechat-6ef78-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "livechat-6ef78",
+      storageBucket: "livechat-6ef78.appspot.com",
+      messagingSenderId: "116999451226",
+      appId: "1:116999451226:web:cefd2e6b93610384c49e63",
+    };
 
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Elements
+    const chatContainer = document.getElementById("chatContainer");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const darkModeToggle = document.getElementById("darkModeToggle");
+    const htmlEl = document.documentElement;
+
+    // Generate a random user ID for this session (no login)
+    const userId = "user_" + Math.random().toString(36).substring(2, 10);
+
+    // Dark mode toggle & persistence
+    function setDarkMode(enabled) {
+      if (enabled) {
+        htmlEl.classList.add("dark");
+        localStorage.setItem("darkMode", "true");
+        darkModeToggle.innerHTML = '<i class="fas fa-sun text-yellow-400 text-lg"></i>';
+      } else {
+        htmlEl.classList.remove("dark");
+        localStorage.setItem("darkMode", "false");
+        darkModeToggle.innerHTML = '<i class="fas fa-moon text-lg"></i>';
+      }
+    }
+
+    // Load dark mode preference
+    const savedDarkMode = localStorage.getItem("darkMode");
+    if (savedDarkMode === "true") {
+      setDarkMode(true);
+    } else {
+      setDarkMode(false);
+    }
+
+    darkModeToggle.addEventListener("click", () => {
+      setDarkMode(!htmlEl.classList.contains("dark"));
+    });
+
+    // Scroll chat container to bottom
+    function scrollToBottom() {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Format timestamp to readable time
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // Create message bubble element
+    function createMessageElement(message) {
+      const isCurrentUser = message.userId === userId;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = `flex ${isCurrentUser ? "justify-end" : "justify-start"}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = `
+        max-w-[75%] px-4 py-2 rounded-2xl relative
+        break-words whitespace-pre-wrap
+        ${isCurrentUser
+          ? "bg-blue-600 text-white rounded-br-none"
+          : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"}
+      `;
+
+      // Message text
+      bubble.textContent = message.text;
+
+      // Timestamp
+      const time = document.createElement("span");
+      time.className = `block text-xs mt-1 opacity-70 ${
+        isCurrentUser ? "text-blue-200" : "text-gray-600 dark:text-gray-400"
+      } select-none`;
+      time.textContent = formatTime(message.timestamp);
+
+      bubble.appendChild(time);
+      wrapper.appendChild(bubble);
+
+      return wrapper;
+    }
+
+    // Listen for new messages in Firebase Realtime Database
+    const messagesRef = db.ref("messages");
+
+    messagesRef.limitToLast(100).on("child_added", (snapshot) => {
+      const message = snapshot.val();
+      if (!message || !message.text) return;
+
+      const messageEl = createMessageElement(message);
+      chatContainer.appendChild(messageEl);
+      scrollToBottom();
+    });
+
+    // Send message function
+    function sendMessage(text) {
+      if (!text.trim()) return;
+
+      const newMessage = {
+        userId,
+        text: text.trim(),
+        timestamp: Date.now(),
+      };
+
+      messagesRef.push(newMessage, (error) => {
+        if (error) {
+          alert("Failed to send message. Please try again.");
+        }
+      });
+    }
+
+    // Handle form submit
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = chatInput.value;
+      sendMessage(text);
+      chatInput.value = "";
+      chatInput.focus();
+    });
+
+    // Accessibility: focus input on page load
+    window.addEventListener("load", () => {
+      chatInput.focus();
+    });
+  </script>
+ </body>
+  </html>
+  
